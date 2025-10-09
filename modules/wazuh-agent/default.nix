@@ -77,6 +77,7 @@ with lib; let
       Group = wazuhGroup;
       WorkingDirectory = "${stateDir}/";
       CapabilityBoundingSet = ["CAP_SETGID" "CAP_DAC_READ_SEARCH" "CAP_AUDIT_READ"];
+      AmbientCapabilities = ["CAP_SETGID" "CAP_DAC_READ_SEARCH" "CAP_AUDIT_READ"];
 
       ExecStart =
         if (d != "wazuh-modulesd")
