@@ -76,7 +76,7 @@ with lib; let
       User = wazuhUser;
       Group = wazuhGroup;
       WorkingDirectory = "${stateDir}/";
-      CapabilityBoundingSet = ["CAP_SETGID" "CAP_DAC_READ_SEARCH"];
+      CapabilityBoundingSet = ["CAP_SETGID" "CAP_DAC_READ_SEARCH" "CAP_AUDIT_READ"];
 
       ExecStart =
         if (d != "wazuh-modulesd")
@@ -206,7 +206,8 @@ in {
       extraGroups = [
         "systemd-journal"
         "systemd-network"
-      ]; # To read journal entries
+        "audit"
+      ]; # To read journal entries and audit logs
     };
 
     users.groups.${wazuhGroup} = {};
