@@ -1,4 +1,5 @@
 {
+
   "audit-userspace" = {
     name = "audit-userspace";
     sha256 = "sha256-6Coy5e35OwVRYOFLyX9B3q05KHklhR3ICnY44tTTBDQ=";
@@ -16,7 +17,7 @@
 
   "cJSON" = {
     name = "cJSON";
-    sha256 = "sha256-Z415YxjaV9XzgHXnS7s7dzddw/i7Sdo0GtG0PEF+jME=";
+    sha256 = "sha256-2oCfcLfQOsUprmIj1DkL+ibNKfjDLI6LO2Me+hZniS0=";
   };
 
   "cpp-httplib" = {
@@ -31,7 +32,7 @@
 
   "flatbuffers" = {
     name = "flatbuffers";
-    sha256 = "sha256-lDaZof6GwZc3HNIUxMNV2g8lOjCT8Mc/t0y0xIuJeKk=";
+    sha256 = "sha256-ylY+u1Ya6QiMe+yc4QHSGCtDztC6Z6CX0O4MFFEI9Vo=";
   };
 
   "googletest" = {

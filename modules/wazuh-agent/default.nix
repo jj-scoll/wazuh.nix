@@ -66,12 +66,7 @@ with lib; let
     wants = ["wazuh-agent-auth.service"];
 
     partOf = ["wazuh.target"];
-    path =
-      cfg.path
-      ++ [
-        "/run/current-system/sw/bin"
-        "/run/wrappers/bin"
-      ];
+    path = cfg.path;
     environment = {
       WAZUH_HOME = stateDir;
     };
@@ -81,7 +76,7 @@ with lib; let
       User = wazuhUser;
       Group = wazuhGroup;
       WorkingDirectory = "${stateDir}/";
-      CapabilityBoundingSet = ["CAP_SETGID"];
+      CapabilityBoundingSet = ["CAP_SETGID" "CAP_DAC_READ_SEARCH"];
 
       ExecStart =
         if (d != "wazuh-modulesd")
@@ -218,6 +213,7 @@ in {
 
     systemd.tmpfiles.rules = [
       "d ${stateDir}/tmp 0750 ${wazuhUser} ${wazuhGroup} 1d"
+      "d ${stateDir}/queue/sockets 0750 ${wazuhUser} ${wazuhGroup} -"
     ];
 
     systemd.targets.multi-user.wants = ["wazuh.target"];
