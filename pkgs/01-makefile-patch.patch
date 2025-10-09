@@ -40,7 +40,7 @@ diff --git a/src/shared/file_op.c b/src/shared/file_op.c
 index 4a7cd9714d..f442facb03 100644
 --- a/src/shared/file_op.c
 +++ b/src/shared/file_op.c
-@@ -3473,30 +3473,13 @@ char *w_homedir(char *arg) {
+@@ -3657,30 +3657,13 @@ char *w_homedir(char *arg) {
          buff = w_strtok_r_str_delim(delim, &buff);
      }
  #else
@@ -73,7 +73,7 @@ index 4a7cd9714d..f442facb03 100644
 -        }
 -    }
 -
-     if ((stat(buff, &buff_stat) < 0) || !S_ISDIR(buff_stat.st_mode)) {
+     if ((w_stat(buff, &buff_stat) < 0) || !S_ISDIR(buff_stat.st_mode)) {
          os_free(buff);
          merror_exit(HOME_ERROR);
 diff --git a/src/shared/privsep_op.c b/src/shared/privsep_op.c
