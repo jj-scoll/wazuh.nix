@@ -102,7 +102,7 @@ stdenv.mkDerivation rec {
     "-C src"
     "TARGET=agent"
     "INSTALLDIR=$out"
-    "-j$NIX_BUILD_CORES"
+    "-j 16"
   ];
 
   patches = [
@@ -162,7 +162,7 @@ stdenv.mkDerivation rec {
 
   preBuild = ''
     make -C src TARGET=agent settings
-    make -C src TARGET=agent INSTALLDIR=$out deps -j$NIX_BUILD_CORES
+    make -C src TARGET=agent INSTALLDIR=$out deps -j 16
   '';
 
   installPhase = ''
