@@ -108,7 +108,6 @@ stdenv.mkDerivation rec {
   patches = [
     ./01-makefile-patch.patch
     ./02-libbpf-bootstrap.patch
-    ./03-bpf-helpers-fix.patch
   ];
 
   unpackPhase = ''
@@ -159,6 +158,15 @@ stdenv.mkDerivation rec {
     USER_AGENT_SERVER_IP=127.0.0.1
     USER_CA_STORE="n"
     EOF
+  '';
+
+  postPatch = ''
+    # Comment out conflicting BPF skeleton function pointers that clash with system libbpf
+    sed -i 's/^void (\*bpf_object__destroy_skeleton)/\/\/ &/' src/syscheckd/src/ebpf/include/bpf_helpers.h
+    sed -i 's/^int (\*bpf_object__open_skeleton)/\/\/ &/' src/syscheckd/src/ebpf/include/bpf_helpers.h
+    sed -i 's/^int (\*bpf_object__load_skeleton)/\/\/ &/' src/syscheckd/src/ebpf/include/bpf_helpers.h
+    sed -i 's/^int (\*bpf_object__attach_skeleton)/\/\/ &/' src/syscheckd/src/ebpf/include/bpf_helpers.h
+    sed -i 's/^void (\*bpf_object__detach_skeleton)/\/\/ &/' src/syscheckd/src/ebpf/include/bpf_helpers.h
   '';
 
   preBuild = ''
