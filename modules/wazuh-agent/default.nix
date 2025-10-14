@@ -95,7 +95,7 @@ let
         "CAP_AUDIT_READ"
       ];
 
-      ExecStart = "/run/wrappers/bin/${d} -f -c ${stateDir}/etc/ossec.conf";
+      ExecStart = "/run/wrappers/bin/${d} -f";
     };
   };
 in
