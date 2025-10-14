@@ -102,7 +102,7 @@ stdenv.mkDerivation rec {
     "-C src"
     "TARGET=agent"
     "INSTALLDIR=$out"
-    "-j 16"
+    "-j 8"
   ];
 
   patches = [
@@ -162,7 +162,7 @@ stdenv.mkDerivation rec {
 
   preBuild = ''
     make -C src TARGET=agent settings
-    make -C src TARGET=agent INSTALLDIR=$out deps -j 16
+    make -C src TARGET=agent INSTALLDIR=$out deps -j 8
   '';
 
   installPhase = ''
