@@ -30,7 +30,7 @@
       upstreamInternalOptions = builtins.readFile (
         builtins.fetchurl {
           url = "https://raw.githubusercontent.com/wazuh/wazuh/refs/tags/v${cfg.package.version}/etc/internal_options.conf";
-          sha256 = "sha256-0sp22rxyjnqwwb11j7yjb9p1knbi8hgnmvv4677s957qn8bl4hrg";
+          sha256 = "0sp22rxyjnqwwb11j7yjb9p1knbi8hgnmvv4677s957qn8bl4hrg";
         }
       );
 
