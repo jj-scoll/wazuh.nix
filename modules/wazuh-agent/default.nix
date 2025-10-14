@@ -13,14 +13,15 @@ let
   pkg = config.services.wazuh-agent.package;
   agentAuthPassword = config.services.wazuh-agent.agentAuthPassword;
 
+  generatedConfigs = import ./generate-agent-config.nix {
+    cfg = config.services.wazuh-agent;
+    inherit pkgs;
+  };
+
   generatedConfig =
-    if !(builtins.isNull cfg.config) then
-      cfg.config
-    else
-      import ./generate-agent-config.nix {
-        cfg = config.services.wazuh-agent;
-        inherit pkgs;
-      };
+    if !(builtins.isNull cfg.config) then cfg.config else generatedConfigs.ossecConfig;
+
+  generatedInternalOptions = generatedConfigs.internalOptions;
 
   preStart = ''
     ${concatMapStringsSep "\n"
@@ -53,11 +54,8 @@ let
     chown ${wazuhUser}:${wazuhGroup} ${stateDir}/etc/ossec.conf
     chmod 640 ${stateDir}/etc/ossec.conf
 
-    # Create internal_options.conf with wazuh_modules settings
-    cat > ${stateDir}/etc/internal_options.conf << 'EOF'
-    # Wazuh modules options
-    wazuh_modules.rlimit_nofile=524288
-    EOF
+    # Generate and copy internal_options.conf
+    cp ${pkgs.writeText "internal_options.conf" generatedInternalOptions} ${stateDir}/etc/internal_options.conf
     chown ${wazuhUser}:${wazuhGroup} ${stateDir}/etc/internal_options.conf
     chmod 640 ${stateDir}/etc/internal_options.conf
 
