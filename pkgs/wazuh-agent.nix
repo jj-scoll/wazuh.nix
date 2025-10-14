@@ -66,7 +66,7 @@ stdenv.mkDerivation rec {
     sha256 = "sha256-LmMt2t2ra7kPiYwcy+GIKg5a+LPebTNct/FP5en5JR0=";
   };
 
-  #enableParallelBuilding = true;
+  enableParallelBuilding = true;
   dontConfigure = true;
   dontFixup = true;
 
@@ -102,6 +102,7 @@ stdenv.mkDerivation rec {
     "-C src"
     "TARGET=agent"
     "INSTALLDIR=$out"
+    "-j$NIX_BUILD_CORES"
   ];
 
   patches = [
@@ -161,7 +162,7 @@ stdenv.mkDerivation rec {
 
   preBuild = ''
     make -C src TARGET=agent settings
-    make -C src TARGET=agent INSTALLDIR=$out deps
+    make -C src TARGET=agent INSTALLDIR=$out deps -j$NIX_BUILD_CORES
   '';
 
   installPhase = ''
