@@ -4,7 +4,8 @@
   pkgs,
   ...
 }:
-with lib; let
+with lib;
+let
   wazuhUser = "wazuh";
   wazuhGroup = wazuhUser;
   stateDir = "/var/ossec";
@@ -13,8 +14,8 @@ with lib; let
   agentAuthPassword = config.services.wazuh-agent.agentAuthPassword;
 
   generatedConfig =
-    if !(builtins.isNull cfg.config)
-    then cfg.config
+    if !(builtins.isNull cfg.config) then
+      cfg.config
     else
       import ./generate-agent-config.nix {
         cfg = config.services.wazuh-agent;
@@ -22,8 +23,7 @@ with lib; let
       };
 
   preStart = ''
-    ${
-      concatMapStringsSep "\n"
+    ${concatMapStringsSep "\n"
       (
         dir: "[ -d ${stateDir}/${dir} ] || cp -Rv --no-preserve=ownership ${pkg}/${dir} ${stateDir}/${dir}"
       )
@@ -41,15 +41,23 @@ with lib; let
       ]
     }
 
+    # Change ownership of directories and files
     chown -R ${wazuhUser}:${wazuhGroup} ${stateDir}
 
+    # Set permissions on directories and files
     find ${stateDir} -type d -exec chmod 770 {} \;
     find ${stateDir} -type f -exec chmod 750 {} \;
 
     # Generate and copy ossec.config
     cp ${pkgs.writeText "ossec.conf" generatedConfig} ${stateDir}/etc/ossec.conf
+    chown ${wazuhUser}:${wazuhGroup} ${stateDir}/etc/ossec.conf
+    chmod 640 ${stateDir}/etc/ossec.conf
 
-    ${lib.optionalString (!(isNull agentAuthPassword)) "echo ${agentAuthPassword} >> ${stateDir}/etc/authd.pass"}
+    ${lib.optionalString (!(isNull agentAuthPassword)) ''
+      echo ${agentAuthPassword} >> ${stateDir}/etc/authd.pass
+      chown ${wazuhUser}:${wazuhGroup} ${stateDir}/etc/authd.pass
+      chmod 600 ${stateDir}/etc/authd.pass
+    ''}
 
   '';
 
@@ -63,9 +71,9 @@ with lib; let
 
   mkService = d: {
     description = "${d}";
-    wants = ["wazuh-agent-auth.service"];
+    wants = [ "wazuh-agent-auth.service" ];
 
-    partOf = ["wazuh.target"];
+    partOf = [ "wazuh.target" ];
     path = cfg.path;
     environment = {
       WAZUH_HOME = stateDir;
@@ -76,23 +84,30 @@ with lib; let
       User = wazuhUser;
       Group = wazuhGroup;
       WorkingDirectory = "${stateDir}/";
-      CapabilityBoundingSet = ["CAP_SETGID" "CAP_DAC_READ_SEARCH" "CAP_AUDIT_READ"];
-      AmbientCapabilities = ["CAP_SETGID" "CAP_DAC_READ_SEARCH" "CAP_AUDIT_READ"];
+      CapabilityBoundingSet = [
+        "CAP_SETGID"
+        "CAP_DAC_READ_SEARCH"
+        "CAP_AUDIT_READ"
+      ];
+      AmbientCapabilities = [
+        "CAP_SETGID"
+        "CAP_DAC_READ_SEARCH"
+        "CAP_AUDIT_READ"
+      ];
 
-      ExecStart =
-        if (d != "wazuh-modulesd")
-        then "/run/wrappers/bin/${d} -f -c ${stateDir}/etc/ossec.conf"
-        else "/run/wrappers/bin/${d} -f";
+      ExecStart = "/run/wrappers/bin/${d} -f -c ${stateDir}/etc/ossec.conf";
     };
   };
-in {
+in
+{
   options = {
     services.wazuh-agent = {
       enable = lib.mkEnableOption "Wazuh agent";
 
       manager = lib.mkOption {
         type = lib.types.submodule {
-          freeformType = with lib.types;
+          freeformType =
+            with lib.types;
             attrsOf (oneOf [
               nonEmptyStr
               port
@@ -119,7 +134,8 @@ in {
 
       registration = lib.mkOption {
         type = lib.types.submodule {
-          freeformType = with lib.types;
+          freeformType =
+            with lib.types;
             attrsOf (oneOf [
               nullOr
               nonEmptyStr
@@ -146,7 +162,7 @@ in {
         };
       };
 
-      package = lib.mkPackageOption pkgs "wazuh-agent" {};
+      package = lib.mkPackageOption pkgs "wazuh-agent" { };
 
       path = lib.mkOption {
         type = lib.types.listOf lib.types.path;
@@ -211,49 +227,43 @@ in {
       ]; # To read journal entries and audit logs
     };
 
-    users.groups.${wazuhGroup} = {};
+    users.groups.${wazuhGroup} = { };
 
     systemd.tmpfiles.rules = [
       "d ${stateDir}/tmp 0750 ${wazuhUser} ${wazuhGroup} 1d"
       "d ${stateDir}/queue/sockets 0750 ${wazuhUser} ${wazuhGroup} -"
     ];
 
-    systemd.targets.multi-user.wants = ["wazuh.target"];
+    systemd.targets.multi-user.wants = [ "wazuh.target" ];
     systemd.targets.wazuh.wants = forEach daemons (d: "${d}.service");
 
-    systemd.services =
-      listToAttrs (map (daemon: nameValuePair daemon (mkService daemon)) daemons)
-      // {
-        wazuh-agent-auth = {
-          description = "Sets up wazuh agent auth";
-          after = [
-            "setup-pre-wazuh.service"
-            "network.target"
-            "network-online.target"
-          ];
-          wants = [
-            "setup-pre-wazuh.service"
-            "network-online.target"
-          ];
-          before = map (d: "${d}.service") daemons;
-          environment = {
-            WAZUH_HOME = stateDir;
-          };
+    systemd.services = listToAttrs (map (daemon: nameValuePair daemon (mkService daemon)) daemons) // {
+      wazuh-agent-auth = {
+        description = "Sets up wazuh agent auth";
+        after = [
+          "setup-pre-wazuh.service"
+          "network.target"
+          "network-online.target"
+        ];
+        wants = [
+          "setup-pre-wazuh.service"
+          "network-online.target"
+        ];
+        before = map (d: "${d}.service") daemons;
+        environment = {
+          WAZUH_HOME = stateDir;
+        };
 
-          unitConfig = {
-            ConditionPathExists = "!${stateDir}/.agent-registered";
-          };
+        unitConfig = {
+          ConditionPathExists = "!${stateDir}/.agent-registered";
+        };
 
-          serviceConfig = let
-            ip =
-              if cfg.registration.host != null
-              then cfg.registration.host
-              else cfg.manager.host;
-            port =
-              if cfg.registration.host != null
-              then cfg.registration.port
-              else cfg.manager.port;
-          in {
+        serviceConfig =
+          let
+            ip = if cfg.registration.host != null then cfg.registration.host else cfg.manager.host;
+            port = if cfg.registration.host != null then cfg.registration.port else cfg.manager.port;
+          in
+          {
             Type = "oneshot";
             User = wazuhUser;
             Group = wazuhGroup;
@@ -261,36 +271,38 @@ in {
               ${pkg}/bin/agent-auth -m ${ip} -p ${toString port} && touch ${stateDir}/.agent-registered
             '';
           };
-        };
+      };
 
-        setup-pre-wazuh = {
-          description = "Sets up wazuh's directory structure";
-          wantedBy = ["wazuh-agent-auth.service"];
-          before = ["wazuh-agent-auth.service"];
-          serviceConfig = {
-            Type = "oneshot";
-            User = wazuhUser;
-            Group = wazuhGroup;
-            ExecStart = let
+      setup-pre-wazuh = {
+        description = "Sets up wazuh's directory structure";
+        wantedBy = [ "wazuh-agent-auth.service" ];
+        before = [ "wazuh-agent-auth.service" ];
+        serviceConfig = {
+          Type = "oneshot";
+          User = "root";
+          Group = "root";
+          ExecStart =
+            let
               script = pkgs.writeShellApplication {
                 name = "wazuh-prestart";
                 text = preStart;
               };
-            in "${script}/bin/wazuh-prestart";
-          };
+            in
+            "${script}/bin/wazuh-prestart";
         };
       };
+    };
 
     security.wrappers = listToAttrs (
       forEach daemons (
         d:
-          nameValuePair d {
-            setgid = true;
-            setuid = true;
-            owner = wazuhUser;
-            group = wazuhGroup;
-            source = "${pkg}/bin/${d}";
-          }
+        nameValuePair d {
+          setgid = true;
+          setuid = true;
+          owner = wazuhUser;
+          group = wazuhGroup;
+          source = "${pkg}/bin/${d}";
+        }
       )
     );
   };
