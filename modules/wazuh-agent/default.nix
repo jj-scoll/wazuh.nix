@@ -13,15 +13,19 @@ let
   pkg = config.services.wazuh-agent.package;
   agentAuthPassword = config.services.wazuh-agent.agentAuthPassword;
 
-  generatedConfigs = import ./generate-agent-config.nix {
+  generatedConfig =
+    if !(builtins.isNull cfg.config) then
+      cfg.config
+    else
+      import ./generate-agent-config.nix {
+        cfg = config.services.wazuh-agent;
+        inherit pkgs;
+      };
+
+  generatedInternalOptions = import ./generate-internal-options.nix {
     cfg = config.services.wazuh-agent;
     inherit pkgs;
   };
-
-  generatedConfig =
-    if !(builtins.isNull cfg.config) then cfg.config else generatedConfigs.ossecConfig;
-
-  generatedInternalOptions = generatedConfigs.internalOptions;
 
   preStart = ''
     ${concatMapStringsSep "\n"
@@ -42,28 +46,19 @@ let
       ]
     }
 
-    # Change ownership of directories and files
     chown -R ${wazuhUser}:${wazuhGroup} ${stateDir}
 
-    # Set permissions on directories and files
     find ${stateDir} -type d -exec chmod 770 {} \;
     find ${stateDir} -type f -exec chmod 750 {} \;
 
-    # Generate and copy ossec.conf
+    # Generate and copy ossec.config
     cp ${pkgs.writeText "ossec.conf" generatedConfig} ${stateDir}/etc/ossec.conf
-    chown ${wazuhUser}:${wazuhGroup} ${stateDir}/etc/ossec.conf
-    chmod 640 ${stateDir}/etc/ossec.conf
 
-    # Generate and copy internal_options.conf
     cp ${pkgs.writeText "internal_options.conf" generatedInternalOptions} ${stateDir}/etc/internal_options.conf
-    chown ${wazuhUser}:${wazuhGroup} ${stateDir}/etc/internal_options.conf
-    chmod 640 ${stateDir}/etc/internal_options.conf
 
-    ${lib.optionalString (!(isNull agentAuthPassword)) ''
-      echo ${agentAuthPassword} >> ${stateDir}/etc/authd.pass
-      chown ${wazuhUser}:${wazuhGroup} ${stateDir}/etc/authd.pass
-      chmod 600 ${stateDir}/etc/authd.pass
-    ''}
+    ${lib.optionalString (
+      !(isNull agentAuthPassword)
+    ) "echo ${agentAuthPassword} >> ${stateDir}/etc/authd.pass"}
 
   '';
 
@@ -95,19 +90,13 @@ let
         "CAP_DAC_READ_SEARCH"
         "CAP_AUDIT_READ"
       ];
-      AmbientCapabilities = [
-        "CAP_SETGID"
-        "CAP_DAC_READ_SEARCH"
-        "CAP_AUDIT_READ"
-      ];
 
       ExecStart =
-        if (d == "wazuh-modulesd") then
-          "/run/wrappers/bin/${d} -f"
+        if (d != "wazuh-modulesd") then
+          "/run/wrappers/bin/${d} -f -c ${stateDir}/etc/ossec.conf"
         else
-          "/run/wrappers/bin/${d} -f -c ${stateDir}/etc/ossec.conf";
-    }
-    // (if (d == "wazuh-modulesd") then { LimitNOFILE = 524288; } else { });
+          "/run/wrappers/bin/${d} -f";
+    };
   };
 in
 {
@@ -290,8 +279,8 @@ in
         before = [ "wazuh-agent-auth.service" ];
         serviceConfig = {
           Type = "oneshot";
-          User = "root";
-          Group = "root";
+          User = wazuhUser;
+          Group = wazuhGroup;
           ExecStart =
             let
               script = pkgs.writeShellApplication {
