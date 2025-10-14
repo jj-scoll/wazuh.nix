@@ -17,7 +17,8 @@ let
     "<location>/var/log/syslog</location>" = "<location>journald</location>";
 
     # Add wazuh_modules section for wazuh-modulesd and extraConfig
-    "</ossec_config>" = "</ossec_config>\n${cfg.extraConfig}";
+    "</ossec_config>" =
+      "  <wazuh_modules>\n    <rlimit_nofile>524288</rlimit_nofile>\n  </wazuh_modules>\n</ossec_config>\n${cfg.extraConfig}";
   };
 in
 builtins.replaceStrings (builtins.attrNames substitutes) (builtins.attrValues substitutes)

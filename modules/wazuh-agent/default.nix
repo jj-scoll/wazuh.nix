@@ -48,7 +48,7 @@ let
     find ${stateDir} -type d -exec chmod 770 {} \;
     find ${stateDir} -type f -exec chmod 750 {} \;
 
-    # Generate and copy ossec.config
+    # Generate and copy ossec.conf (includes wazuh_modules section for wazuh-modulesd)
     cp ${pkgs.writeText "ossec.conf" generatedConfig} ${stateDir}/etc/ossec.conf
     chown ${wazuhUser}:${wazuhGroup} ${stateDir}/etc/ossec.conf
     chmod 640 ${stateDir}/etc/ossec.conf
@@ -95,7 +95,11 @@ let
         "CAP_AUDIT_READ"
       ];
 
-      ExecStart = "/run/wrappers/bin/${d} -f";
+      ExecStart =
+        if (d == "wazuh-modulesd") then
+          "/run/wrappers/bin/${d} -f"
+        else
+          "/run/wrappers/bin/${d} -f -c ${stateDir}/etc/ossec.conf";
     };
   };
 in
