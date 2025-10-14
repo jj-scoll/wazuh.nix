@@ -108,6 +108,7 @@ stdenv.mkDerivation rec {
   patches = [
     ./01-makefile-patch.patch
     ./02-libbpf-bootstrap.patch
+    ./03-bpf-helpers-fix.patch
   ];
 
   unpackPhase = ''
