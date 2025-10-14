@@ -48,10 +48,18 @@ let
     find ${stateDir} -type d -exec chmod 770 {} \;
     find ${stateDir} -type f -exec chmod 750 {} \;
 
-    # Generate and copy ossec.conf (includes wazuh_modules section for wazuh-modulesd)
+    # Generate and copy ossec.conf
     cp ${pkgs.writeText "ossec.conf" generatedConfig} ${stateDir}/etc/ossec.conf
     chown ${wazuhUser}:${wazuhGroup} ${stateDir}/etc/ossec.conf
     chmod 640 ${stateDir}/etc/ossec.conf
+
+    # Create internal_options.conf with wazuh_modules settings
+    cat > ${stateDir}/etc/internal_options.conf << 'EOF'
+    # Wazuh modules options
+    wazuh_modules.rlimit_nofile=524288
+    EOF
+    chown ${wazuhUser}:${wazuhGroup} ${stateDir}/etc/internal_options.conf
+    chmod 640 ${stateDir}/etc/internal_options.conf
 
     ${lib.optionalString (!(isNull agentAuthPassword)) ''
       echo ${agentAuthPassword} >> ${stateDir}/etc/authd.pass
@@ -100,7 +108,8 @@ let
           "/run/wrappers/bin/${d} -f"
         else
           "/run/wrappers/bin/${d} -f -c ${stateDir}/etc/ossec.conf";
-    };
+    }
+    // (if (d == "wazuh-modulesd") then { LimitNOFILE = 524288; } else { });
   };
 in
 {
