@@ -46,7 +46,7 @@ let
       owner = "libbpf";
       repo = "libbpf-bootstrap";
       rev = "7cab3cd36f37e4fc714be3468f46dcfb1902420b";
-      sha256 = "sha256-3IOdm/bkHH2PrOayk71+reBEMUV6Wt6Hw9wSbSzEZ5U="; # nix-prefetch-git https://github.com/libbpf/libbpf-bootstrap.git 7cab3cd36f37e4fc714be3468f46dcfb1902420b
+      sha256 = "sha256-HaLF0i/BPKTi8MhlBhfViZEOC8zXw7XwaiuM0GDETMg="; # nix-prefetch-git https://github.com/libbpf/libbpf-bootstrap.git 7cab3cd36f37e4fc714be3468f46dcfb1902420b
       fetchSubmodules = true;
     };
     modern_bpf_c = fetchurl {
