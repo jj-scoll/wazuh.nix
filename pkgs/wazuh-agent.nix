@@ -5,6 +5,7 @@
   cmake,
   curl,
   elfutils,
+  expat,
   fetchFromGitHub,
   fetchurl,
   lib,
@@ -15,12 +16,13 @@
   libgcc,
   libtool,
   llvm,
+  nlohmann_json,
   openssl,
   patchelf,
   perl,
   pkg-config,
   policycoreutils,
-  python312,
+  python311,
   removeReferencesTo,
   stdenv,
   systemd,
@@ -80,14 +82,17 @@ stdenv.mkDerivation rec {
     clang
     cmake
     curl
+    expat
+    nlohmann_json
     perl
     pkg-config
     policycoreutils
-    python312
+    python311
     zlib
   ];
 
   buildInputs = [
+    curl
     elfutils
     libbfd
     libbpf
@@ -167,56 +172,217 @@ stdenv.mkDerivation rec {
     sed -i 's/^int (\*bpf_object__load_skeleton)/\/\/ &/' src/syscheckd/src/ebpf/include/bpf_helpers.h
     sed -i 's/^int (\*bpf_object__attach_skeleton)/\/\/ &/' src/syscheckd/src/ebpf/include/bpf_helpers.h
     sed -i 's/^void (\*bpf_object__detach_skeleton)/\/\/ &/' src/syscheckd/src/ebpf/include/bpf_helpers.h
+
+    # Fix CMake CURL detection in http-request module
+    if [ -f src/shared_modules/http-request/CMakeLists.txt ]; then
+      # Add find_package for CURL before trying to use it
+      sed -i '/add_library(urlrequest/a\
+find_package(CURL REQUIRED)\
+if(CURL_FOUND)\
+  include_directories(''${CURL_INCLUDE_DIRS})\
+endif()' src/shared_modules/http-request/CMakeLists.txt
+
+      # Replace CURL::libcurl with ''${CURL_LIBRARIES}
+      sed -i 's/CURL::libcurl/''${CURL_LIBRARIES}/g' src/shared_modules/http-request/CMakeLists.txt
+    fi
+
+    # Fix lambda signature mismatch in packageLinuxParserSnap.cpp
+    # For NixOS, we don't need snap package support, so just stub it out
+    if [ -f src/data_provider/src/packages/packageLinuxParserSnap.cpp ]; then
+      # Replace with a minimal stub
+      cat > src/data_provider/src/packages/packageLinuxParserSnap.cpp << 'EOF'
+#include <functional>
+#include <nlohmann/json.hpp>
+
+// Stub implementation - snap packages not supported on NixOS
+void getSnapInfo(std::function<void(nlohmann::json&)> callback)
+{
+    nlohmann::json empty = nlohmann::json::array();
+    if (callback) {
+        callback(empty);
+    }
+}
+EOF
+    fi
   '';
 
   preBuild = ''
+    # Set up CMake to find curl properly
+    export CMAKE_PREFIX_PATH="${curl.dev}:$CMAKE_PREFIX_PATH"
+    export PKG_CONFIG_PATH="${curl.dev}/lib/pkgconfig:$PKG_CONFIG_PATH"
+
     # Create ar wrapper to handle long command lines
-    mkdir -p .build-tools
-    cat > .build-tools/ar-wrapper.sh << ARWRAPPER
-    #!${stdenv.shell}
-    # Wrapper for ar that handles long command lines by using file lists
-    REAL_AR=''$(command -v ar 2>/dev/null || echo ar)
-    [ -z "''$REAL_AR" ] && REAL_AR=ar
+    # The OpenSSL Makefile expects AR to be at /build/.build-tools/ar-wrapper.sh
+    # We need to ensure it's available at both the actual build root and /build
 
-    OBJ_COUNT=0
-    OBJ_FILES=()
-    ARCHIVE=""
-    ARGS=()
+    # Use NIX_BUILD_TOP which Nix sets to the build directory (usually /build)
+    BUILD_ROOT="''${NIX_BUILD_TOP:-/build}"
 
-    for arg in "''$@"; do
-        case "''$arg" in
-            *.o)
-                OBJ_FILES+=("''$arg")
-                OBJ_COUNT=''$((OBJ_COUNT + 1))
-                ;;
-            *.a)
-                ARCHIVE="''$arg"
-                ;;
-            *)
-                ARGS+=("''$arg")
-                ;;
-        esac
-    done
-
-    # Always use file list if we have object files (safer for long command lines)
-    if [ "''$OBJ_COUNT" -gt 0 ]; then
-        TMPFILE=''$(mktemp)
-        trap "rm -f ''$TMPFILE" EXIT
-        printf '%s\n' "''${OBJ_FILES[@]}" > "''$TMPFILE"
-        exec "''$REAL_AR" "''${ARGS[@]}" "''$ARCHIVE" "@''$TMPFILE"
+    # Ensure we can create the wrapper in the expected location
+    # If /build doesn't exist or isn't writable, use the actual build directory
+    if [ ! -d "/build" ] || [ ! -w "/build" ]; then
+        # If /build isn't available, use current directory as build root
+        BUILD_ROOT="$(pwd)"
+        if [ -d "src" ]; then
+            # We're in the root of the source
+            BUILD_ROOT="$(pwd)"
+        elif [ -d "../src" ]; then
+            # We're one level deep
+            BUILD_ROOT="$(cd .. && pwd)"
+        fi
     else
-        exec "''$REAL_AR" "''$@"
+        # /build exists and is writable, ensure ar-wrapper is there too
+        BUILD_ROOT="/build"
     fi
-    ARWRAPPER
-    chmod +x .build-tools/ar-wrapper.sh
 
-    # Set AR to use wrapper for OpenSSL build
-    export PATH="''$(pwd)/.build-tools:''$PATH"
-    export AR="''$(pwd)/.build-tools/ar-wrapper.sh"
+    # Create the .build-tools directory
+    mkdir -p "$BUILD_ROOT/.build-tools"
+    AR_WRAPPER="$BUILD_ROOT/.build-tools/ar-wrapper.sh"
+
+    # If we're not using /build, also create a symlink at /build if possible
+    if [ "$BUILD_ROOT" != "/build" ] && [ -w "/" ]; then
+        # Try to create /build as a symlink to our actual build root
+        if [ ! -e "/build" ]; then
+            ln -sf "$BUILD_ROOT" /build 2>/dev/null || true
+        fi
+    fi
+
+    # Also ensure the wrapper is available at the canonical /build location if different
+    if [ "$BUILD_ROOT" != "/build" ] && [ -d "/build" ] && [ -w "/build" ]; then
+        mkdir -p /build/.build-tools
+    fi
+
+    cat > "$AR_WRAPPER" << ARWRAPPER
+        #!${stdenv.shell}
+        # Wrapper for ar that handles long command lines by using file lists
+        
+        # Find ar binary - use explicit path from Nix
+        REAL_AR="${stdenv.cc.bintools}/bin/ar"
+        
+        # Verify ar exists and is executable
+        if [ ! -f "''$REAL_AR" ] || [ ! -x "''$REAL_AR" ]; then
+            # Fallback: try to find ar in PATH
+            REAL_AR=''$(command -v ar 2>/dev/null || true)
+            if [ -z "''$REAL_AR" ] || [ ! -x "''$REAL_AR" ]; then
+                echo "Error: ar binary not found" >&2
+                exit 1
+            fi
+        fi
+
+        # Initialize variables
+        OBJ_COUNT=0
+        OBJ_FILES=""
+        ARCHIVE=""
+        ARGS=""
+
+        # Parse arguments
+        for arg in "''$@"; do
+            case "''$arg" in
+                *.o)
+                    if [ -z "''$OBJ_FILES" ]; then
+                        OBJ_FILES="''$arg"
+                    else
+                        OBJ_FILES="''$OBJ_FILES
+    ''$arg"
+                    fi
+                    # Increment count safely
+                    OBJ_COUNT=''$((OBJ_COUNT + 1))
+                    ;;
+                *.a)
+                    ARCHIVE="''$arg"
+                    ;;
+                *)
+                    if [ -z "''$ARGS" ]; then
+                        ARGS="''$arg"
+                    else
+                        ARGS="''$ARGS ''$arg"
+                    fi
+                    ;;
+            esac
+        done
+
+        # Ensure OBJ_COUNT is numeric (default to 0 if empty or unset)
+        if [ -z "''$OBJ_COUNT" ]; then
+            OBJ_COUNT=0
+        fi
+
+        # Always use file list if we have object files (safer for long command lines)
+        if [ "''$OBJ_COUNT" -gt 0 ] && [ -n "''$ARCHIVE" ]; then
+            TMPFILE=''$(mktemp)
+            trap "rm -f ''$TMPFILE" EXIT
+            echo "''$OBJ_FILES" > "''$TMPFILE"
+            if [ -n "''$ARGS" ]; then
+                exec "''$REAL_AR" ''$ARGS "''$ARCHIVE" "@''$TMPFILE"
+            else
+                exec "''$REAL_AR" "''$ARCHIVE" "@''$TMPFILE"
+            fi
+        else
+            exec "''$REAL_AR" "''$@"
+        fi
+        ARWRAPPER
+    chmod +x "$AR_WRAPPER"
+
+    # If we created the wrapper at a non-standard location, also copy it to /build
+    if [ "$BUILD_ROOT" != "/build" ] && [ -d "/build" ] && [ -w "/build/.build-tools" ]; then
+        cp "$AR_WRAPPER" /build/.build-tools/ar-wrapper.sh
+        chmod +x /build/.build-tools/ar-wrapper.sh
+        echo "Copied ar-wrapper to /build/.build-tools/" >&2
+    fi
+
+    # Verify wrapper exists
+    if [ ! -f "$AR_WRAPPER" ] || [ ! -x "$AR_WRAPPER" ]; then
+        echo "Error: Failed to create ar wrapper at $AR_WRAPPER" >&2
+        echo "Build root: $BUILD_ROOT" >&2
+        exit 1
+    fi
+
+    # Set AR to use the wrapper - OpenSSL might expect it at /build
+    if [ -x "/build/.build-tools/ar-wrapper.sh" ]; then
+        export AR="/build/.build-tools/ar-wrapper.sh"
+        export PATH="/build/.build-tools:$BUILD_ROOT/.build-tools:''$PATH"
+    else
+        export AR="$AR_WRAPPER"
+        export PATH="$BUILD_ROOT/.build-tools:''$PATH"
+    fi
+
+    # Debug output
+    echo "AR wrapper created at: $AR_WRAPPER" >&2
+    echo "AR variable set to: $AR" >&2
+    echo "Build root: $BUILD_ROOT" >&2
+    echo "Testing AR wrapper..." >&2
+    "$AR" --version >&2 || true
 
     make -C src TARGET=agent settings
     # Build OpenSSL deps sequentially to avoid command line length issues with ar
     make -C src TARGET=agent INSTALLDIR=$out deps -j 1
+  '';
+
+  buildPhase = ''
+    # Ensure AR wrapper is available for the main build
+    # Use the same logic as preBuild to find the wrapper
+    BUILD_ROOT="''${NIX_BUILD_TOP:-/build}"
+
+    # Check if wrapper exists at /build first (OpenSSL expects it there)
+    if [ -x "/build/.build-tools/ar-wrapper.sh" ]; then
+        export AR="/build/.build-tools/ar-wrapper.sh"
+        export PATH="/build/.build-tools:''$PATH"
+    elif [ -x "$BUILD_ROOT/.build-tools/ar-wrapper.sh" ]; then
+        export AR="$BUILD_ROOT/.build-tools/ar-wrapper.sh"
+        export PATH="$BUILD_ROOT/.build-tools:''$PATH"
+    else
+        # Try to find it in current directory structure
+        if [ -x ".build-tools/ar-wrapper.sh" ]; then
+            export AR="$(pwd)/.build-tools/ar-wrapper.sh"
+            export PATH="$(pwd)/.build-tools:''$PATH"
+        else
+            echo "Warning: ar-wrapper.sh not found, build may fail" >&2
+        fi
+    fi
+
+    echo "buildPhase: AR is set to: $AR" >&2
+
+    # Run the main build
+    make ''$makeFlags ''$makeFlagsArray
   '';
 
   installPhase = ''
