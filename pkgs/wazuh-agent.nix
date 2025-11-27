@@ -171,7 +171,8 @@ stdenv.mkDerivation rec {
 
   preBuild = ''
     make -C src TARGET=agent settings
-    make -C src TARGET=agent INSTALLDIR=$out deps -j 8
+    # Build OpenSSL deps sequentially to avoid command line length issues with ar
+    make -C src TARGET=agent INSTALLDIR=$out deps -j 1
   '';
 
   installPhase = ''
