@@ -27,7 +27,7 @@
 
   "curl" = {
     name = "curl";
-    sha256 = "sha256-qTtbg5JV2SSHo/mtffraHcc6sBaALH9mncCaiRxlRvo=";
+    sha256 = "sha256-MM9xQuQoJxjOsjfhe1y/da/NfJ84gKA5xe/qYtsJRwk=";
   };
 
   "flatbuffers" = {
@@ -47,7 +47,7 @@
 
   "libarchive" = {
     name = "libarchive";
-    sha256 = "sha256-yVgEgXXa1aE9CFHQPHwaNjYeEujpPnQywYROlUnd9Yo=";
+    sha256 = "sha256-VA/0pV3vp1d4osQFZ6gwZIzlNnuK6hIzZodNlrc074A=";
   };
 
   "libbpf-bootstrap" = {
@@ -82,7 +82,7 @@
 
   "lua" = {
     name = "lua";
-    sha256 = "sha256-Yu634kskbFBwi81Nkts8nejRltlMnDO4v/QA8l8QWh8=";
+    sha256 = "sha256-Iz6H6HEJC9MMS2kqxzvXFDYcFQURSOTu7IKKHfhDbso=";
   };
 
   "lzma" = {
@@ -102,12 +102,12 @@
 
   "openssl" = {
     name = "openssl";
-    sha256 = "sha256-I4QVZBEgyPednBwsr5e4jT1tvtVihZ3QZjvUto3CF54=";
+    sha256 = "sha256-A4b+Ogv0i64spNF0KlPfmo/LG3NYO6Iuj4p936E3XNk=";
   };
 
   "pacman" = {
     name = "pacman";
-    sha256 = "sha256-9n3Tiir7NA19YDUNSbdamDp8TgGtdgIFaSDv6EnVsUM=";
+    sha256 = "sha256-Yxq+Bl7JgttWv+wFzzfDOo9on9f0Fkw5J3KEvXoNDjE=";
   };
 
   "popt" = {
@@ -127,12 +127,12 @@
 
   "rpm" = {
     name = "rpm";
-    sha256 = "sha256-rvwlMB7M8irFHL2BOn89RHHxxCYYFy7lSKKbGVmsW68=";
+    sha256 = "sha256-kNhy9U6rzzdzbZCsF6jTEwEtqE5oWxn9Lav0oBKVcpA=";
   };
 
   "sqlite" = {
     name = "sqlite";
-    sha256 = "sha256-mo+mqRb4whB+1l2rjc7TkmBOF1EE1qjDycE4NHmGnwc=";
+    sha256 = "sha256-qBv/MLtK/9GwakmD/4jvgntKuuoxkbOa/37bKNHd0AM=";
   };
 
   "zlib" = {

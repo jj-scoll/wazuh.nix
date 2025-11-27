@@ -3,8 +3,8 @@
 let
   upstreamConfig = builtins.readFile (
     builtins.fetchurl {
-      url = "https://raw.githubusercontent.com/wazuh/wazuh/refs/tags/v${cfg.package.version}/etc/internal_options.conf";
-      sha256 = "0sp22rxyjnqwwb11j7yjb9p1knbi8hgnmvv4677s957qn8bl4hrg";
+      url = "https://raw.githubusercontent.com/wazuh/wazuh/refs/tags/v${cfg.package.version}/etc/internal_options.conf"; # nix-prefetch-url https://raw.githubusercontent.com/wazuh/wazuh/refs/tags/v4.14.1/etc/internal_options.conf --type sha256 | xargs nix hash convert --from nix32 --to sri --hash-algo sha256
+      sha256 = "sha256-L0NCF7L4lKTPMWTvah9EcdkZblrSHxnC4hxb6XsW4mo=";
     }
   );
 

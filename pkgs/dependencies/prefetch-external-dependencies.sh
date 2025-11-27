@@ -32,7 +32,7 @@ EXTERNAL_DEPS=(
 )
 
 # Find version at: https://github.com/wazuh/wazuh/blob/v4.12.0/src/Makefile#L1385
-DEPENDENCY_VERSION=43
+DEPENDENCY_VERSION=47
 BASE_URL="https://packages.wazuh.com/deps/$DEPENDENCY_VERSION/libraries/sources"
 
 echo "{" >external_dependencies.nix

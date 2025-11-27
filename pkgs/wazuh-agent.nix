@@ -28,8 +28,8 @@
   ...
 }:
 let
-  version = "4.13.1";
-  dependencyVersion = "43";
+  version = "4.14.1";
+  dependencyVersion = "47";
   external_dependencies = (
     import ./dependencies {
       inherit fetchurl lib dependencyVersion;
@@ -38,20 +38,20 @@ let
   wazuh-http-request = fetchFromGitHub {
     owner = "wazuh";
     repo = "wazuh-http-request";
-    rev = "75384783d339a817b8d8f13f778051a878d642a6";
-    sha256 = "sha256-yCKxwzG65BB3Cr1gEkX4qxbGCjG5zzJpq9di5L1couU=";
+    rev = "7667e79a0f2782c268b286d10e7a4526cc8bb6e6";
+    sha256 = "sha256-NpBGjQjGIp2HORqwN7v5g5sdk6a2LIuHXYaKzQxrDsM=";
   };
   libbpf_bootstrap_deps = {
     bootstrap = fetchFromGitHub {
       owner = "libbpf";
       repo = "libbpf-bootstrap";
-      rev = "aa18cc0d8fc8ef4104fb74d218ae6a20cf6eb176";
-      sha256 = "sha256-ggIDf/I4QlSypFpsRibsdWd9bSevC2mfyEenlYZQdqI=";
+      rev = "7cab3cd36f37e4fc714be3468f46dcfb1902420b";
+      sha256 = "sha256-3IOdm/bkHH2PrOayk71+reBEMUV6Wt6Hw9wSbSzEZ5U="; # nix-prefetch-git https://github.com/libbpf/libbpf-bootstrap.git 7cab3cd36f37e4fc714be3468f46dcfb1902420b
       fetchSubmodules = true;
     };
     modern_bpf_c = fetchurl {
-      url = "https://raw.githubusercontent.com/wazuh/wazuh/v${version}/src/syscheckd/src/ebpf/src/modern.bpf.c";
-      hash = "sha256-D7NPWwrBblP43U7DoBgZewo4wmn3HWGr14wU85+fOC8=";
+      url = "https://raw.githubusercontent.com/wazuh/wazuh/v${version}/src/syscheckd/src/ebpf/src/modern.bpf.c"; # nix-prefetch-url https://raw.githubusercontent.com/wazuh/wazuh/v4.14.1/src/syscheckd/src/ebpf/src/modern.bpf.c
+      hash = "sha256-D7NPWwrBblP43U7DoBgZewo4wmn3HWGr14wU85+fOC8="; # nix-prefetch-url https://raw.githubusercontent.com/wazuh/wazuh/v4.14.1/src/syscheckd/src/ebpf/src/modern.bpf.c --type sha256 | xargs nix hash convert --from nix32 --to sri --hash-algo sha256
     };
   };
 in
@@ -63,7 +63,7 @@ stdenv.mkDerivation rec {
     owner = "wazuh";
     repo = "wazuh";
     rev = "v${version}";
-    sha256 = "sha256-LmMt2t2ra7kPiYwcy+GIKg5a+LPebTNct/FP5en5JR0=";
+    sha256 = "sha256-p9ZuG//4Et7tTGhDfvHFVmpSK253r8OXBdV9+8RrREE="; # nix-prefetch-git https://github.com/wazuh/wazuh.git v4.14.1
   };
 
   enableParallelBuilding = true;

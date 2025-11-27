@@ -3,7 +3,7 @@
 let
   upstreamConfig = builtins.readFile (
     builtins.fetchurl {
-      url = "https://raw.githubusercontent.com/wazuh/wazuh/refs/tags/v${cfg.package.version}/etc/ossec-agent.conf";
+      url = "https://raw.githubusercontent.com/wazuh/wazuh/refs/tags/v${cfg.package.version}/etc/ossec-agent.conf"; # nix-prefetch-url https://raw.githubusercontent.com/wazuh/wazuh/refs/tags/v4.14.1/etc/ossec-agent.conf --type sha256 | xargs nix hash convert --from nix32 --to sri --hash-algo sha256
       sha256 = "sha256-a1+VatIAsfC+0SQhY1cFdNfEt+BNdnRUC40pK6o4kyI=";
     }
   );
