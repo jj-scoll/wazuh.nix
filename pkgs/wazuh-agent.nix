@@ -173,6 +173,17 @@ stdenv.mkDerivation rec {
     sed -i 's/^int (\*bpf_object__attach_skeleton)/\/\/ &/' src/syscheckd/src/ebpf/include/bpf_helpers.h
     sed -i 's/^void (\*bpf_object__detach_skeleton)/\/\/ &/' src/syscheckd/src/ebpf/include/bpf_helpers.h
 
+    # Disable testtool build to avoid linking issues with snap support
+    if [ -f src/data_provider/CMakeLists.txt ]; then
+      sed -i 's/add_subdirectory(testtool)/# add_subdirectory(testtool) # Disabled for NixOS/' src/data_provider/CMakeLists.txt
+    fi
+
+    # Disable eBPF syscheck module to avoid bpftool build race condition
+    # The bpftool ExternalProject doesn't complete before skeleton generation
+    if [ -f src/syscheckd/CMakeLists.txt ]; then
+      sed -i 's/add_subdirectory(src\/ebpf)/# add_subdirectory(src\/ebpf) # Disabled eBPF for NixOS/' src/syscheckd/CMakeLists.txt
+    fi
+
     # Fix CMake CURL detection in http-request module
     if [ -f src/shared_modules/http-request/CMakeLists.txt ]; then
       # Add find_package for CURL before trying to use it
@@ -195,7 +206,7 @@ endif()' src/shared_modules/http-request/CMakeLists.txt
 #include <nlohmann/json.hpp>
 
 // Stub implementation - snap packages not supported on NixOS
-void getSnapInfo(std::function<void(nlohmann::json&)> callback)
+extern void getSnapInfo(std::function<void(nlohmann::json&)> callback)
 {
     nlohmann::json empty = nlohmann::json::array();
     if (callback) {
@@ -203,6 +214,12 @@ void getSnapInfo(std::function<void(nlohmann::json&)> callback)
     }
 }
 EOF
+    fi
+
+    # Also patch the header file to ensure the declaration matches
+    if [ -f src/data_provider/src/packages/packageLinuxDataRetriever.h ]; then
+      # Comment out or replace the snap function call to avoid linking issues
+      sed -i 's/getSnapInfo(callback);/\/\/ getSnapInfo(callback); \/\/ Disabled for NixOS/' src/data_provider/src/packages/packageLinuxDataRetriever.h
     fi
   '';
 
