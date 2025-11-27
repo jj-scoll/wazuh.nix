@@ -7,6 +7,7 @@ EXTERNAL_DEPS=(
     "cJSON"
     "cpp-httplib"
     "curl"
+    "dbus"
     "flatbuffers"
     "googletest"
     "jemalloc"

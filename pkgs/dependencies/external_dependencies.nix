@@ -30,6 +30,11 @@
     sha256 = "sha256-MM9xQuQoJxjOsjfhe1y/da/NfJ84gKA5xe/qYtsJRwk=";
   };
 
+  "dbus" = {
+    name = "dbus";
+    sha256 = "sha256-fGVKyaT2i1DzLWdJIsGP/nQdMoqX15RFdhj8OgekjTo=";
+  };
+
   "flatbuffers" = {
     name = "flatbuffers";
     sha256 = "sha256-ylY+u1Ya6QiMe+yc4QHSGCtDztC6Z6CX0O4MFFEI9Vo=";
