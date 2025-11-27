@@ -175,18 +175,15 @@ stdenv.mkDerivation rec {
     cat > .build-tools/ar-wrapper.sh << ARWRAPPER
     #!${stdenv.shell}
     # Wrapper for ar that handles long command lines by using file lists
-    REAL_AR=''$(command -v ar || echo ar)
-    if [ -z "$REAL_AR" ]; then
-        REAL_AR=ar
-    fi
-    TOTAL_LEN=0
+    REAL_AR=''$(command -v ar 2>/dev/null || echo ar)
+    [ -z "''$REAL_AR" ] && REAL_AR=ar
+
     OBJ_COUNT=0
     OBJ_FILES=()
     ARCHIVE=""
     ARGS=()
 
     for arg in "''$@"; do
-        TOTAL_LEN=''$((TOTAL_LEN + ''${#arg} + 1))
         case "''$arg" in
             *.o)
                 OBJ_FILES+=("''$arg")
@@ -201,8 +198,8 @@ stdenv.mkDerivation rec {
         esac
     done
 
-    # If we have many object files or long command line, use file list
-    if [ ''$OBJ_COUNT -gt 50 ] || [ ''$TOTAL_LEN -gt 100000 ]; then
+    # Always use file list if we have object files (safer for long command lines)
+    if [ "''$OBJ_COUNT" -gt 0 ]; then
         TMPFILE=''$(mktemp)
         trap "rm -f ''$TMPFILE" EXIT
         printf '%s\n' "''${OBJ_FILES[@]}" > "''$TMPFILE"
