@@ -170,6 +170,44 @@ stdenv.mkDerivation rec {
   '';
 
   preBuild = ''
+    # Create ar wrapper to handle long command lines
+    mkdir -p .build-tools
+    cat > .build-tools/ar-wrapper.sh << 'ARWRAPPER'
+    #!/usr/bin/env bash
+    # Wrapper for ar that handles long command lines by using file lists
+    REAL_AR=''$(command -v ar)
+    TOTAL_LEN=0
+    OBJ_FILES=()
+    ARCHIVE=""
+    ARGS=()
+
+    for arg in "''$@"; do
+        TOTAL_LEN=''$((TOTAL_LEN + ''${#arg} + 1))
+        if [[ "''$arg" == *.o ]]; then
+            OBJ_FILES+=("''$arg")
+        elif [[ "''$arg" == *.a ]]; then
+            ARCHIVE="''$arg"
+        else
+            ARGS+=("''$arg")
+        fi
+    done
+
+    # If we have many object files or long command line, use file list
+    if [ ''${#OBJ_FILES[@]} -gt 50 ] || [ ''$TOTAL_LEN -gt 100000 ]; then
+        TMPFILE=''$(mktemp)
+        trap "rm -f ''$TMPFILE" EXIT
+        printf '%s\n' "''${OBJ_FILES[@]}" > "''$TMPFILE"
+        exec "''$REAL_AR" "''${ARGS[@]}" "''$ARCHIVE" "@''$TMPFILE"
+    else
+        exec "''$REAL_AR" "''$@"
+    fi
+    ARWRAPPER
+    chmod +x .build-tools/ar-wrapper.sh
+
+    # Set AR to use wrapper for OpenSSL build
+    export PATH="''$(pwd)/.build-tools:''$PATH"
+    export AR="''$(pwd)/.build-tools/ar-wrapper.sh"
+
     make -C src TARGET=agent settings
     # Build OpenSSL deps sequentially to avoid command line length issues with ar
     make -C src TARGET=agent INSTALLDIR=$out deps -j 1
