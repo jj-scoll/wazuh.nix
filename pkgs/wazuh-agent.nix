@@ -172,8 +172,8 @@ stdenv.mkDerivation rec {
   preBuild = ''
     # Create ar wrapper to handle long command lines
     mkdir -p .build-tools
-    cat > .build-tools/ar-wrapper.sh << 'ARWRAPPER'
-    #!/usr/bin/env bash
+    cat > .build-tools/ar-wrapper.sh << ARWRAPPER
+    #!${stdenv.shell}
     # Wrapper for ar that handles long command lines by using file lists
     REAL_AR=''$(command -v ar)
     TOTAL_LEN=0
