@@ -76,6 +76,9 @@ stdenv.mkDerivation rec {
     "zerocallusedregs"
   ];
 
+  # GCC 14+ treats many warnings as errors - disable for legacy code compatibility
+  env.NIX_CFLAGS_COMPILE = "-Wno-error=incompatible-pointer-types -Wno-error=int-conversion -Wno-error=implicit-function-declaration";
+
   nativeBuildInputs = [
     autoconf
     automake
