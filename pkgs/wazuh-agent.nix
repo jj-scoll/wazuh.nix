@@ -221,6 +221,57 @@ EOF
       # Comment out or replace the snap function call to avoid linking issues
       sed -i 's/getSnapInfo(callback);/\/\/ getSnapInfo(callback); \/\/ Disabled for NixOS/' src/data_provider/src/packages/packageLinuxDataRetriever.h
     fi
+
+    # Fix libbpf-bootstrap CMakeLists.txt to disable BPF compilation
+    # The vmlinux.h has bool/true/false definitions that conflict with stdbool.h
+    if [ -f src/external/libbpf-bootstrap/CMakeLists.txt ]; then
+      # Comment out the bpf_object and add_dependencies calls (handle both indented and non-indented)
+      sed -i 's/^\(\s*\)bpf_object(modern /\1# bpf_object(modern # Disabled for NixOS/' src/external/libbpf-bootstrap/CMakeLists.txt
+      sed -i 's/^\(\s*\)add_dependencies(modern_skel /\1# add_dependencies(modern_skel # Disabled for NixOS/' src/external/libbpf-bootstrap/CMakeLists.txt
+
+      # Also disable the add_library(modern ...) target that tries to compile modern.bpf.c as regular C
+      sed -i 's/^\(\s*\)add_library(modern /\1# add_library(modern # Disabled for NixOS/' src/external/libbpf-bootstrap/CMakeLists.txt
+      sed -i 's/^\(\s*\)add_executable(modern /\1# add_executable(modern # Disabled for NixOS/' src/external/libbpf-bootstrap/CMakeLists.txt
+
+      # Comment out any target_link_libraries for modern
+      sed -i 's/^\(\s*\)target_link_libraries(modern /\1# target_link_libraries(modern # Disabled for NixOS/' src/external/libbpf-bootstrap/CMakeLists.txt
+
+      # Add a dummy modern_skel target AND dummy modern library target so CMake doesn't fail
+      printf '\n# Dummy targets for NixOS build (eBPF disabled due to vmlinux.h conflicts)\nadd_custom_target(modern_skel ALL COMMAND ''${CMAKE_COMMAND} -E echo "eBPF disabled for NixOS build")\n' >> src/external/libbpf-bootstrap/CMakeLists.txt
+
+      # Create a stub modern.bpf.c that compiles without BPF builtins
+      # First remove the read-only file copied from Nix store
+      rm -f src/external/libbpf-bootstrap/src/modern.bpf.c
+      cat > src/external/libbpf-bootstrap/src/modern.bpf.c << 'BPF_STUB_EOF'
+/* Stub BPF source for NixOS build - eBPF disabled */
+/* This file replaces the real BPF program since we cannot compile BPF code in Nix sandbox */
+BPF_STUB_EOF
+
+      # Create a stub modern.skel.h file - the change_libbpf_include target depends on this FILE existing
+      mkdir -p src/external/libbpf-bootstrap/build
+      cat > src/external/libbpf-bootstrap/build/modern.skel.h << 'SKEL_EOF'
+/* Stub skeleton header for NixOS build - eBPF disabled */
+#ifndef __MODERN_SKEL_H__
+#define __MODERN_SKEL_H__
+
+#include <stdlib.h>
+
+struct modern_bpf {
+    struct bpf_object *obj;
+    struct bpf_map *ringbuf;
+};
+
+static inline struct modern_bpf *modern_bpf__open(void) { return NULL; }
+static inline int modern_bpf__load(struct modern_bpf *skel) { return -1; }
+static inline int modern_bpf__attach(struct modern_bpf *skel) { return -1; }
+static inline void modern_bpf__destroy(struct modern_bpf *skel) { (void)skel; }
+
+#endif /* __MODERN_SKEL_H__ */
+SKEL_EOF
+
+      # Also create it in the source dir in case CMake looks there
+      cp src/external/libbpf-bootstrap/build/modern.skel.h src/external/libbpf-bootstrap/src/modern.skel.h 2>/dev/null || true
+    fi
   '';
 
   preBuild = ''
