@@ -16,7 +16,7 @@
 +  DOWNLOAD_COMMAND ""
    STEP_TARGETS build
  )
- 
+
  # Clone bpftool repository
  ExternalProject_Add(bpftool
    PREFIX bpftool
@@ -31,7 +31,7 @@
 +  DOWNLOAD_COMMAND ""
    STEP_TARGETS build
  )
- 
+
  # Clone vmlinux.h repository
  ExternalProject_Add(vmlinux.h
    PREFIX vmlinux.h
@@ -43,11 +43,11 @@
    INSTALL_COMMAND ""
 +  DOWNLOAD_COMMAND ""
  )
- 
+
  # Set the path to clang (update if necessary)
 @@ -79,10 +76,10 @@ endif()
  set(WAZUH_BRANCH "v4.12.0" CACHE STRING "Wazuh branch for modern.bpf.c")
- 
+
  # Download modern.bpf.c with error checking that verifies file existence and non-zero size
 -set(FILE_URL "https://raw.githubusercontent.com/wazuh/wazuh/${WAZUH_BRANCH}/src/syscheckd/src/ebpf/src/modern.bpf.c")
 +#set(FILE_URL "https://raw.githubusercontent.com/wazuh/wazuh/${WAZUH_BRANCH}/src/syscheckd/src/ebpf/src/modern.bpf.c")
@@ -59,10 +59,12 @@
  if(NOT EXISTS ${DEST_PATH} OR FILE_SIZE EQUAL 0)
      message(FATAL_ERROR "Failed to download modern.bpf.c from ${FILE_URL}. Please check WAZUH_BRANCH.")
  endif()
-@@ -97,6 +94,7 @@ include_directories(
+@@ -97,6 +94,15 @@ include_directories(
    ${CMAKE_CURRENT_SOURCE_DIR}/vmlinux.h/include/${ARCH}
  )
- 
+
+-bpf_object(modern src/modern.bpf.c)
+-add_dependencies(modern_skel libbpf-build bpftool-build vmlinux.h)
 +set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-error=implicit-function-declaration -Wno-error=int-conversion")
 +
 +# Disabled for NixOS - eBPF module is disabled in syscheckd and vmlinux.h
@@ -74,4 +76,4 @@
 +add_custom_target(modern_skel ALL
 +    COMMAND ${CMAKE_COMMAND} -E echo "eBPF disabled for NixOS build"
 +)
- 
+
