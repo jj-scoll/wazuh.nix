@@ -64,6 +64,14 @@
  )
  
 +set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-error=implicit-function-declaration -Wno-error=int-conversion")
- bpf_object(modern src/modern.bpf.c)
- add_dependencies(modern_skel libbpf-build bpftool-build vmlinux.h)
++
++# Disabled for NixOS - eBPF module is disabled in syscheckd and vmlinux.h
++# has bool/true/false definitions that conflict with stdbool.h
++#bpf_object(modern src/modern.bpf.c)
++#add_dependencies(modern_skel libbpf-build bpftool-build vmlinux.h)
++
++# Create a dummy target so CMake doesn't complain about missing targets
++add_custom_target(modern_skel ALL
++    COMMAND ${CMAKE_COMMAND} -E echo "eBPF disabled for NixOS build"
++)
  
