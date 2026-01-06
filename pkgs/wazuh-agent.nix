@@ -176,6 +176,11 @@ stdenv.mkDerivation rec {
     sed -i 's/^int (\*bpf_object__attach_skeleton)/\/\/ &/' src/syscheckd/src/ebpf/include/bpf_helpers.h
     sed -i 's/^void (\*bpf_object__detach_skeleton)/\/\/ &/' src/syscheckd/src/ebpf/include/bpf_helpers.h
 
+    # Fix missing <cstdint> include in stringHelper.h (GCC 14+ is stricter about includes)
+    if [ -f src/shared_modules/utils/stringHelper.h ]; then
+      sed -i '1i #include <cstdint>' src/shared_modules/utils/stringHelper.h
+    fi
+
     # Disable testtool build to avoid linking issues with snap support
     if [ -f src/data_provider/CMakeLists.txt ]; then
       sed -i 's/add_subdirectory(testtool)/# add_subdirectory(testtool) # Disabled for NixOS/' src/data_provider/CMakeLists.txt
