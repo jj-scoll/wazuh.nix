@@ -89,6 +89,12 @@ let
         "CAP_SETGID"
         "CAP_DAC_READ_SEARCH"
         "CAP_AUDIT_READ"
+        "CAP_SYS_PTRACE"
+      ];
+      AmbientCapabilities = [
+        "CAP_DAC_READ_SEARCH"
+        "CAP_AUDIT_READ"
+        "CAP_SYS_PTRACE"
       ];
 
       ExecStart =
@@ -228,6 +234,16 @@ in
     };
 
     users.groups.${wazuhGroup} = { };
+    users.groups.audit = { };  # Ensure audit group exists for reading audit logs
+
+    # Allow audit group to read audit logs
+    systemd.tmpfiles.settings."wazuh-audit" = {
+      "/var/log/audit".d = {
+        group = "audit";
+        mode = "0750";
+        user = "root";
+      };
+    };
 
     systemd.tmpfiles.rules = [
       "d ${stateDir}/tmp 0750 ${wazuhUser} ${wazuhGroup} 1d"

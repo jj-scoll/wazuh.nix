@@ -30,7 +30,7 @@
   ...
 }:
 let
-  version = "4.14.1";
+  version = "4.14.3";
   dependencyVersion = "47";
   external_dependencies = (
     import ./dependencies {
@@ -47,13 +47,13 @@ let
     bootstrap = fetchFromGitHub {
       owner = "libbpf";
       repo = "libbpf-bootstrap";
-      rev = "7cab3cd36f37e4fc714be3468f46dcfb1902420b";
-      sha256 = "sha256-HaLF0i/BPKTi8MhlBhfViZEOC8zXw7XwaiuM0GDETMg="; # nix-prefetch-git https://github.com/libbpf/libbpf-bootstrap.git 7cab3cd36f37e4fc714be3468f46dcfb1902420b
+      rev = "80334a221459f196123d54a7264f42b6767a04d3";
+      sha256 = "sha256-qoFfMZBZFHJH2dB5BwBerONlwTr62S8yIve9BpQ4tBc="; # nix-prefetch-git https://github.com/libbpf/libbpf-bootstrap.git 80334a221459f196123d54a7264f42b6767a04d3
       fetchSubmodules = true;
     };
     modern_bpf_c = fetchurl {
-      url = "https://raw.githubusercontent.com/wazuh/wazuh/v${version}/src/syscheckd/src/ebpf/src/modern.bpf.c"; # nix-prefetch-url https://raw.githubusercontent.com/wazuh/wazuh/v4.14.1/src/syscheckd/src/ebpf/src/modern.bpf.c
-      hash = "sha256-D7NPWwrBblP43U7DoBgZewo4wmn3HWGr14wU85+fOC8="; # nix-prefetch-url https://raw.githubusercontent.com/wazuh/wazuh/v4.14.1/src/syscheckd/src/ebpf/src/modern.bpf.c --type sha256 | xargs nix hash convert --from nix32 --to sri --hash-algo sha256
+      url = "https://raw.githubusercontent.com/wazuh/wazuh/v${version}/src/syscheckd/src/ebpf/src/modern.bpf.c"; # nix-prefetch-url https://raw.githubusercontent.com/wazuh/wazuh/v4.14.3/src/syscheckd/src/ebpf/src/modern.bpf.c
+      hash = "sha256-D7NPWwrBblP43U7DoBgZewo4wmn3HWGr14wU85+fOC8="; # nix-prefetch-url https://raw.githubusercontent.com/wazuh/wazuh/v4.14.3/src/syscheckd/src/ebpf/src/modern.bpf.c --type sha256 | xargs nix hash convert --from nix32 --to sri --hash-algo sha256
     };
   };
 in
@@ -65,7 +65,7 @@ stdenv.mkDerivation rec {
     owner = "wazuh";
     repo = "wazuh";
     rev = "v${version}";
-    sha256 = "sha256-p9ZuG//4Et7tTGhDfvHFVmpSK253r8OXBdV9+8RrREE="; # nix-prefetch-git https://github.com/wazuh/wazuh.git v4.14.1
+    sha256 = "sha256-p9ZuG//4Et7tTGhDfvHFVmpSK253r8OXBdV9+8RrREE="; # nix-prefetch-git https://github.com/wazuh/wazuh.git v4.14.3
   };
 
   enableParallelBuilding = true;
@@ -169,117 +169,133 @@ stdenv.mkDerivation rec {
   '';
 
   postPatch = ''
-    # Comment out conflicting BPF skeleton function pointers that clash with system libbpf
-    sed -i 's/^void (\*bpf_object__destroy_skeleton)/\/\/ &/' src/syscheckd/src/ebpf/include/bpf_helpers.h
-    sed -i 's/^int (\*bpf_object__open_skeleton)/\/\/ &/' src/syscheckd/src/ebpf/include/bpf_helpers.h
-    sed -i 's/^int (\*bpf_object__load_skeleton)/\/\/ &/' src/syscheckd/src/ebpf/include/bpf_helpers.h
-    sed -i 's/^int (\*bpf_object__attach_skeleton)/\/\/ &/' src/syscheckd/src/ebpf/include/bpf_helpers.h
-    sed -i 's/^void (\*bpf_object__detach_skeleton)/\/\/ &/' src/syscheckd/src/ebpf/include/bpf_helpers.h
+        # Comment out conflicting BPF skeleton function pointers that clash with system libbpf
+        sed -i 's/^void (\*bpf_object__destroy_skeleton)/\/\/ &/' src/syscheckd/src/ebpf/include/bpf_helpers.h
+        sed -i 's/^int (\*bpf_object__open_skeleton)/\/\/ &/' src/syscheckd/src/ebpf/include/bpf_helpers.h
+        sed -i 's/^int (\*bpf_object__load_skeleton)/\/\/ &/' src/syscheckd/src/ebpf/include/bpf_helpers.h
+        sed -i 's/^int (\*bpf_object__attach_skeleton)/\/\/ &/' src/syscheckd/src/ebpf/include/bpf_helpers.h
+        sed -i 's/^void (\*bpf_object__detach_skeleton)/\/\/ &/' src/syscheckd/src/ebpf/include/bpf_helpers.h
 
-    # Fix missing <cstdint> include in stringHelper.h (GCC 14+ is stricter about includes)
-    if [ -f src/shared_modules/utils/stringHelper.h ]; then
-      sed -i '1i #include <cstdint>' src/shared_modules/utils/stringHelper.h
-    fi
+        # Fix missing stdint includes (GCC 14+ is stricter about includes)
+        # Use <stdint.h> for all headers since some are included from both C and C++ code
+        for header in \
+          src/shared_modules/utils/stringHelper.h \
+          src/shared_modules/dbsync/src/sqlite/isqlite_wrapper.h \
+          src/shared_modules/dbsync/src/sqlite/sqlite_wrapper.h \
+          src/shared_modules/dbsync/include/dbsync.h \
+          src/shared_modules/dbsync/include/db_exception.h \
+          src/shared_modules/rsync/include/rsync.h \
+          src/shared_modules/utils/hashHelper.h \
+          src/shared_modules/utils/rocksDBWrapper.hpp \
+          src/data_provider/src/sysInfo.hpp \
+          src/headers/shared.h; do
+          if [ -f "$header" ]; then
+            # Only add if not already present (check for both C and C++ versions)
+            if ! grep -q '#include <stdint.h>\|#include <cstdint>' "$header"; then
+              sed -i '1i #include <stdint.h>' "$header"
+            fi
+          fi
+        done
 
-    # Disable testtool build to avoid linking issues with snap support
-    if [ -f src/data_provider/CMakeLists.txt ]; then
-      sed -i 's/add_subdirectory(testtool)/# add_subdirectory(testtool) # Disabled for NixOS/' src/data_provider/CMakeLists.txt
-    fi
+        # Disable testtool build to avoid linking issues with snap support
+        if [ -f src/data_provider/CMakeLists.txt ]; then
+          sed -i 's/add_subdirectory(testtool)/# add_subdirectory(testtool) # Disabled for NixOS/' src/data_provider/CMakeLists.txt
+        fi
 
-    # Disable eBPF syscheck module to avoid bpftool build race condition
-    # The bpftool ExternalProject doesn't complete before skeleton generation
-    if [ -f src/syscheckd/CMakeLists.txt ]; then
-      sed -i 's/add_subdirectory(src\/ebpf)/# add_subdirectory(src\/ebpf) # Disabled eBPF for NixOS/' src/syscheckd/CMakeLists.txt
-    fi
+        # Disable eBPF syscheck module to avoid bpftool build race condition
+        # The bpftool ExternalProject doesn't complete before skeleton generation
+        if [ -f src/syscheckd/CMakeLists.txt ]; then
+          sed -i 's/add_subdirectory(src\/ebpf)/# add_subdirectory(src\/ebpf) # Disabled eBPF for NixOS/' src/syscheckd/CMakeLists.txt
+        fi
 
-    # Fix CMake CURL detection in http-request module
-    if [ -f src/shared_modules/http-request/CMakeLists.txt ]; then
-      # Add find_package for CURL before trying to use it
-      sed -i '/add_library(urlrequest/a\
-find_package(CURL REQUIRED)\
-if(CURL_FOUND)\
-  include_directories(''${CURL_INCLUDE_DIRS})\
-endif()' src/shared_modules/http-request/CMakeLists.txt
+        # Fix CMake CURL detection in http-request module
+        if [ -f src/shared_modules/http-request/CMakeLists.txt ]; then
+          # Add find_package for CURL before trying to use it
+          sed -i '/add_library(urlrequest/a\
+    find_package(CURL REQUIRED)\
+    if(CURL_FOUND)\
+      include_directories(''${CURL_INCLUDE_DIRS})\
+    endif()' src/shared_modules/http-request/CMakeLists.txt
 
-      # Replace CURL::libcurl with ''${CURL_LIBRARIES}
-      sed -i 's/CURL::libcurl/''${CURL_LIBRARIES}/g' src/shared_modules/http-request/CMakeLists.txt
-    fi
+          # Replace CURL::libcurl with ''${CURL_LIBRARIES}
+          sed -i 's/CURL::libcurl/''${CURL_LIBRARIES}/g' src/shared_modules/http-request/CMakeLists.txt
+        fi
 
-    # Fix lambda signature mismatch in packageLinuxParserSnap.cpp
-    # For NixOS, we don't need snap package support, so just stub it out
-    if [ -f src/data_provider/src/packages/packageLinuxParserSnap.cpp ]; then
-      # Replace with a minimal stub
-      cat > src/data_provider/src/packages/packageLinuxParserSnap.cpp << 'EOF'
-#include <functional>
-#include <nlohmann/json.hpp>
+        # Fix lambda signature mismatch in packageLinuxParserSnap.cpp
+        # For NixOS, we don't need snap package support, so just stub it out
+        if [ -f src/data_provider/src/packages/packageLinuxParserSnap.cpp ]; then
+          # Replace with a minimal stub
+          cat > src/data_provider/src/packages/packageLinuxParserSnap.cpp << 'EOF'
+    #include <functional>
+    #include <nlohmann/json.hpp>
 
-// Stub implementation - snap packages not supported on NixOS
-extern void getSnapInfo(std::function<void(nlohmann::json&)> callback)
-{
-    nlohmann::json empty = nlohmann::json::array();
-    if (callback) {
-        callback(empty);
+    // Stub implementation - snap packages not supported on NixOS
+    extern void getSnapInfo(std::function<void(nlohmann::json&)> callback)
+    {
+        nlohmann::json empty = nlohmann::json::array();
+        if (callback) {
+            callback(empty);
+        }
     }
-}
-EOF
-    fi
+    EOF
+        fi
 
-    # Also patch the header file to ensure the declaration matches
-    if [ -f src/data_provider/src/packages/packageLinuxDataRetriever.h ]; then
-      # Comment out or replace the snap function call to avoid linking issues
-      sed -i 's/getSnapInfo(callback);/\/\/ getSnapInfo(callback); \/\/ Disabled for NixOS/' src/data_provider/src/packages/packageLinuxDataRetriever.h
-    fi
+        # Also patch the header file to ensure the declaration matches
+        if [ -f src/data_provider/src/packages/packageLinuxDataRetriever.h ]; then
+          # Comment out or replace the snap function call to avoid linking issues
+          sed -i 's/getSnapInfo(callback);/\/\/ getSnapInfo(callback); \/\/ Disabled for NixOS/' src/data_provider/src/packages/packageLinuxDataRetriever.h
+        fi
 
-    # Fix libbpf-bootstrap CMakeLists.txt to disable BPF compilation
-    # The vmlinux.h has bool/true/false definitions that conflict with stdbool.h
-    if [ -f src/external/libbpf-bootstrap/CMakeLists.txt ]; then
-      # Comment out the bpf_object and add_dependencies calls (handle both indented and non-indented)
-      sed -i 's/^\(\s*\)bpf_object(modern /\1# bpf_object(modern # Disabled for NixOS/' src/external/libbpf-bootstrap/CMakeLists.txt
-      sed -i 's/^\(\s*\)add_dependencies(modern_skel /\1# add_dependencies(modern_skel # Disabled for NixOS/' src/external/libbpf-bootstrap/CMakeLists.txt
+        # Fix libbpf-bootstrap CMakeLists.txt to disable BPF compilation
+        # The vmlinux.h has bool/true/false definitions that conflict with stdbool.h
+        if [ -f src/external/libbpf-bootstrap/CMakeLists.txt ]; then
+          # Comment out the bpf_object and add_dependencies calls (handle both indented and non-indented)
+          sed -i 's/^\(\s*\)bpf_object(modern /\1# bpf_object(modern # Disabled for NixOS/' src/external/libbpf-bootstrap/CMakeLists.txt
+          sed -i 's/^\(\s*\)add_dependencies(modern_skel /\1# add_dependencies(modern_skel # Disabled for NixOS/' src/external/libbpf-bootstrap/CMakeLists.txt
 
-      # Also disable the add_library(modern ...) target that tries to compile modern.bpf.c as regular C
-      sed -i 's/^\(\s*\)add_library(modern /\1# add_library(modern # Disabled for NixOS/' src/external/libbpf-bootstrap/CMakeLists.txt
-      sed -i 's/^\(\s*\)add_executable(modern /\1# add_executable(modern # Disabled for NixOS/' src/external/libbpf-bootstrap/CMakeLists.txt
+          # Also disable the add_library(modern ...) target that tries to compile modern.bpf.c as regular C
+          sed -i 's/^\(\s*\)add_library(modern /\1# add_library(modern # Disabled for NixOS/' src/external/libbpf-bootstrap/CMakeLists.txt
+          sed -i 's/^\(\s*\)add_executable(modern /\1# add_executable(modern # Disabled for NixOS/' src/external/libbpf-bootstrap/CMakeLists.txt
 
-      # Comment out any target_link_libraries for modern
-      sed -i 's/^\(\s*\)target_link_libraries(modern /\1# target_link_libraries(modern # Disabled for NixOS/' src/external/libbpf-bootstrap/CMakeLists.txt
+          # Comment out any target_link_libraries for modern
+          sed -i 's/^\(\s*\)target_link_libraries(modern /\1# target_link_libraries(modern # Disabled for NixOS/' src/external/libbpf-bootstrap/CMakeLists.txt
 
-      # Add a dummy modern_skel target AND dummy modern library target so CMake doesn't fail
-      printf '\n# Dummy targets for NixOS build (eBPF disabled due to vmlinux.h conflicts)\nadd_custom_target(modern_skel ALL COMMAND ''${CMAKE_COMMAND} -E echo "eBPF disabled for NixOS build")\n' >> src/external/libbpf-bootstrap/CMakeLists.txt
+          # Add a dummy modern_skel target AND dummy modern library target so CMake doesn't fail
+          printf '\n# Dummy targets for NixOS build (eBPF disabled due to vmlinux.h conflicts)\nadd_custom_target(modern_skel ALL COMMAND ''${CMAKE_COMMAND} -E echo "eBPF disabled for NixOS build")\n' >> src/external/libbpf-bootstrap/CMakeLists.txt
 
-      # Create a stub modern.bpf.c that compiles without BPF builtins
-      # First remove the read-only file copied from Nix store
-      rm -f src/external/libbpf-bootstrap/src/modern.bpf.c
-      cat > src/external/libbpf-bootstrap/src/modern.bpf.c << 'BPF_STUB_EOF'
-/* Stub BPF source for NixOS build - eBPF disabled */
-/* This file replaces the real BPF program since we cannot compile BPF code in Nix sandbox */
-BPF_STUB_EOF
+          # Create a stub modern.bpf.c that compiles without BPF builtins
+          # First remove the read-only file copied from Nix store
+          rm -f src/external/libbpf-bootstrap/src/modern.bpf.c
+          cat > src/external/libbpf-bootstrap/src/modern.bpf.c << 'BPF_STUB_EOF'
+    /* Stub BPF source for NixOS build - eBPF disabled */
+    /* This file replaces the real BPF program since we cannot compile BPF code in Nix sandbox */
+    BPF_STUB_EOF
 
-      # Create a stub modern.skel.h file - the change_libbpf_include target depends on this FILE existing
-      mkdir -p src/external/libbpf-bootstrap/build
-      cat > src/external/libbpf-bootstrap/build/modern.skel.h << 'SKEL_EOF'
-/* Stub skeleton header for NixOS build - eBPF disabled */
-#ifndef __MODERN_SKEL_H__
-#define __MODERN_SKEL_H__
+          # Create a stub modern.skel.h file - the change_libbpf_include target depends on this FILE existing
+          mkdir -p src/external/libbpf-bootstrap/build
+          cat > src/external/libbpf-bootstrap/build/modern.skel.h << 'SKEL_EOF'
+    /* Stub skeleton header for NixOS build - eBPF disabled */
+    #ifndef __MODERN_SKEL_H__
+    #define __MODERN_SKEL_H__
 
-#include <stdlib.h>
+    #include <stdlib.h>
 
-struct modern_bpf {
-    struct bpf_object *obj;
-    struct bpf_map *ringbuf;
-};
+    struct modern_bpf {
+        struct bpf_object *obj;
+        struct bpf_map *ringbuf;
+    };
 
-static inline struct modern_bpf *modern_bpf__open(void) { return NULL; }
-static inline int modern_bpf__load(struct modern_bpf *skel) { return -1; }
-static inline int modern_bpf__attach(struct modern_bpf *skel) { return -1; }
-static inline void modern_bpf__destroy(struct modern_bpf *skel) { (void)skel; }
+    static inline struct modern_bpf *modern_bpf__open(void) { return NULL; }
+    static inline int modern_bpf__load(struct modern_bpf *skel) { return -1; }
+    static inline int modern_bpf__attach(struct modern_bpf *skel) { return -1; }
+    static inline void modern_bpf__destroy(struct modern_bpf *skel) { (void)skel; }
 
-#endif /* __MODERN_SKEL_H__ */
-SKEL_EOF
+    #endif /* __MODERN_SKEL_H__ */
+    SKEL_EOF
 
-      # Also create it in the source dir in case CMake looks there
-      cp src/external/libbpf-bootstrap/build/modern.skel.h src/external/libbpf-bootstrap/src/modern.skel.h 2>/dev/null || true
-    fi
+          # Also create it in the source dir in case CMake looks there
+          cp src/external/libbpf-bootstrap/build/modern.skel.h src/external/libbpf-bootstrap/src/modern.skel.h 2>/dev/null || true
+        fi
   '';
 
   preBuild = ''
