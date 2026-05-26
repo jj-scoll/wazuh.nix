@@ -25,13 +25,21 @@ SCRIPT_DIR = Path(__file__).parent.resolve()
 WAZUH_AGENT_NIX = SCRIPT_DIR.parent / "wazuh-agent.nix"
 DEPS_DIR = SCRIPT_DIR
 
-# External dependencies to fetch
+# External dependencies to fetch. The exact set depends on which Wazuh release
+# you're targeting:
+#   - 4.14.x (/deps/47-51/) includes msgpack, pacman; lacks the v5 C++ libs.
+#   - 5.0.x  (/deps/99-29734+/) drops msgpack/pacman/cpython; adds abseil-cpp,
+#     fmt, spdlog, yaml-cpp, pugixml, libmaxminddb, protobuf, date, simdjson.
+# This list is the union — entries that 403 on a given DEPS_VERSION are skipped
+# with a warning instead of aborting (see prefetch_external_dependency).
 EXTERNAL_DEPS = [
-    "audit-userspace", "benchmark", "bzip2", "cJSON", "cpp-httplib", "curl",
-    "dbus", "flatbuffers", "googletest", "jemalloc", "libarchive",
-    "libbpf-bootstrap", "libdb", "libffi", "libpcre2", "libplist", "libyaml",
-    "lua", "lzma", "msgpack", "nlohmann", "openssl", "pacman", "popt",
-    "procps", "rocksdb", "rpm", "sqlite", "zlib"
+    "abseil-cpp", "audit-userspace", "benchmark", "bzip2", "cJSON",
+    "cpp-httplib", "curl", "date", "dbus", "flatbuffers", "fmt", "googletest",
+    "jemalloc", "libarchive", "libbpf-bootstrap", "libdb", "libffi",
+    "libmaxminddb", "libpcre2", "libplist", "libyaml", "lua", "lzma",
+    "msgpack", "nlohmann", "openssl", "pacman", "popt", "procps", "protobuf",
+    "pugixml", "rocksdb", "rpm", "simdjson", "spdlog", "sqlite", "yaml-cpp",
+    "zlib"
 ]
 
 
@@ -107,7 +115,8 @@ def infer_dependency_version(wazuh_version: str, current_dep_version: str) -> st
             makefile = response.read().decode()
             # Wazuh's Makefile defines `DEPS_VERSION = 51` (the actual variable name).
             # Older releases used DEPENDENCY_VERSION; accept either.
-            match = re.search(r'(?:DEPS_VERSION|DEPENDENCY_VERSION)\s*[:=]+\s*(\d+)', makefile)
+            # Beta builds use non-numeric snapshot ids like `99-29734`.
+            match = re.search(r'(?:DEPS_VERSION|DEPENDENCY_VERSION)\s*[:=]+\s*(\S+)', makefile)
             if match:
                 return match.group(1)
     except Exception:

@@ -30,8 +30,8 @@
   ...
 }:
 let
-  version = "4.14.5";
-  dependencyVersion = "51";
+  version = "5.0.0-beta2";
+  dependencyVersion = "99-29734";
   external_dependencies = (
     import ./dependencies {
       inherit fetchurl lib dependencyVersion;
@@ -47,13 +47,13 @@ let
     bootstrap = fetchFromGitHub {
       owner = "libbpf";
       repo = "libbpf-bootstrap";
-      rev = "80334a221459f196123d54a7264f42b6767a04d3";
-      sha256 = "sha256-qoFfMZBZFHJH2dB5BwBerONlwTr62S8yIve9BpQ4tBc="; # nix-prefetch-git https://github.com/libbpf/libbpf-bootstrap.git 80334a221459f196123d54a7264f42b6767a04d3
+      rev = "38595436df393e672a9dc6f9d6f26da7d4f70871";
+      sha256 = "sha256-WFE1UoHlVF222kIeUdLk28eomDzs8pCWn0cL1S1jjCk="; # nix-prefetch-git https://github.com/libbpf/libbpf-bootstrap.git 38595436df393e672a9dc6f9d6f26da7d4f70871
       fetchSubmodules = true;
     };
     modern_bpf_c = fetchurl {
-      url = "https://raw.githubusercontent.com/wazuh/wazuh/v${version}/src/syscheckd/src/ebpf/src/modern.bpf.c"; # nix-prefetch-url https://raw.githubusercontent.com/wazuh/wazuh/v4.14.5/src/syscheckd/src/ebpf/src/modern.bpf.c
-      hash = "sha256-D7NPWwrBblP43U7DoBgZewo4wmn3HWGr14wU85+fOC8="; # nix-prefetch-url https://raw.githubusercontent.com/wazuh/wazuh/v4.14.5/src/syscheckd/src/ebpf/src/modern.bpf.c --type sha256 | xargs nix hash convert --from nix32 --to sri --hash-algo sha256
+      url = "https://raw.githubusercontent.com/wazuh/wazuh/v${version}/src/syscheckd/src/ebpf/src/modern.bpf.c"; # nix-prefetch-url https://raw.githubusercontent.com/wazuh/wazuh/v5.0.0-beta2/src/syscheckd/src/ebpf/src/modern.bpf.c
+      hash = "sha256-D7NPWwrBblP43U7DoBgZewo4wmn3HWGr14wU85+fOC8="; # nix-prefetch-url https://raw.githubusercontent.com/wazuh/wazuh/v5.0.0-beta2/src/syscheckd/src/ebpf/src/modern.bpf.c --type sha256 | xargs nix hash convert --from nix32 --to sri --hash-algo sha256
     };
   };
 in
@@ -65,7 +65,7 @@ stdenv.mkDerivation rec {
     owner = "wazuh";
     repo = "wazuh";
     rev = "v${version}";
-    sha256 = "sha256-Vtld3DCp3OEFcevydZC6gZkL2ngbPsasBiyzBc5VRDY="; # nix-prefetch-git https://github.com/wazuh/wazuh.git v4.14.5
+    sha256 = "sha256-QxIBxXebk/eZoeoaVA8tlcGUhgXZM0zgbkCqWmWoSmU="; # nix-prefetch-git https://github.com/wazuh/wazuh.git v5.0.0-beta2-beta2
   };
 
   enableParallelBuilding = true;
@@ -147,12 +147,34 @@ stdenv.mkDerivation rec {
     substituteInPlace src/external/openssl/config \
       --replace-warn "/usr/bin/env" "env"
 
+    # OpenSSL's Configure has `#! /usr/bin/env perl`; the Nix sandbox has no
+    # /usr/bin/env, so the exec from `config` fails with "not found".
+    substituteInPlace src/external/openssl/Configure \
+      --replace-fail "#! /usr/bin/env perl" "#! ${perl}/bin/perl"
+
     substituteInPlace src/init/inst-functions.sh \
       --replace-warn "WAZUH_GROUP='wazuh'" "WAZUH_GROUP='nixbld'" \
       --replace-warn "WAZUH_USER='wazuh'" "WAZUH_USER='nixbld'"
 
+    # v5 install.sh now propagates InstallWazuh's exit code (v4.x ignored it).
+    # The agent install path has many hardcoded `-o root` / `-g 0` chowns that
+    # nixbld can't satisfy. Rewrite to nixbld so install succeeds.
+    sed -i -e 's/-o root /-o nixbld /g' \
+           -e 's/-g 0 /-g nixbld /g' \
+           -e 's/-g root /-g nixbld /g' \
+           src/init/inst-functions.sh
+
+    # adduser.sh is invoked directly by inst-functions.sh; the cp --no-preserve
+    # mode in unpackPhase strips its +x bit.
+    chmod +x src/init/adduser.sh
+
     substituteInPlace src/external/libbpf-bootstrap/CMakeLists.txt \
       --replace-fail "/usr/bin/clang" "${clang}/bin/clang"
+
+    # Wazuh v5 dropped the `ifneq AIX` guard around the strip-after-cp step
+    # for libstdc++/libgcc_s; the strip call points at Nix store paths and
+    # fails. The strip is unnecessary because dontFixup = true.
+    sed -i '/STRIP_TOOL.*-x.*\$@/d' src/Makefile
 
     cat << EOF > "etc/preloaded-vars.conf"
     USER_LANGUAGE="en"
