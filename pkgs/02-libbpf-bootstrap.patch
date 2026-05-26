@@ -5,7 +5,7 @@
  ExternalProject_Add(libbpf
    PREFIX libbpf
 -  GIT_REPOSITORY https://github.com/libbpf/libbpf.git
--  GIT_TAG v1.5.0  # v1.4.0: f11758a7807893330cc87481a7a16cf956326ab3
+-  GIT_TAG v1.7.0  # v1.4.0: f11758a7807893330cc87481a7a16cf956326ab3
 +  DOWNLOAD_COMMAND ""
    SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/libbpf
    CONFIGURE_COMMAND ""
@@ -15,7 +15,7 @@
  ExternalProject_Add(bpftool
    PREFIX bpftool
 -  GIT_REPOSITORY https://github.com/libbpf/bpftool.git
--  GIT_TAG v7.5.0
+-  GIT_TAG v7.7.0
 +  DOWNLOAD_COMMAND ""
    SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/bpftool
    CONFIGURE_COMMAND ""

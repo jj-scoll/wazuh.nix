@@ -30,8 +30,8 @@
   ...
 }:
 let
-  version = "4.14.3";
-  dependencyVersion = "47";
+  version = "4.14.5";
+  dependencyVersion = "51";
   external_dependencies = (
     import ./dependencies {
       inherit fetchurl lib dependencyVersion;
@@ -52,8 +52,8 @@ let
       fetchSubmodules = true;
     };
     modern_bpf_c = fetchurl {
-      url = "https://raw.githubusercontent.com/wazuh/wazuh/v${version}/src/syscheckd/src/ebpf/src/modern.bpf.c"; # nix-prefetch-url https://raw.githubusercontent.com/wazuh/wazuh/v4.14.3/src/syscheckd/src/ebpf/src/modern.bpf.c
-      hash = "sha256-D7NPWwrBblP43U7DoBgZewo4wmn3HWGr14wU85+fOC8="; # nix-prefetch-url https://raw.githubusercontent.com/wazuh/wazuh/v4.14.3/src/syscheckd/src/ebpf/src/modern.bpf.c --type sha256 | xargs nix hash convert --from nix32 --to sri --hash-algo sha256
+      url = "https://raw.githubusercontent.com/wazuh/wazuh/v${version}/src/syscheckd/src/ebpf/src/modern.bpf.c"; # nix-prefetch-url https://raw.githubusercontent.com/wazuh/wazuh/v4.14.5/src/syscheckd/src/ebpf/src/modern.bpf.c
+      hash = "sha256-D7NPWwrBblP43U7DoBgZewo4wmn3HWGr14wU85+fOC8="; # nix-prefetch-url https://raw.githubusercontent.com/wazuh/wazuh/v4.14.5/src/syscheckd/src/ebpf/src/modern.bpf.c --type sha256 | xargs nix hash convert --from nix32 --to sri --hash-algo sha256
     };
   };
 in
@@ -65,7 +65,7 @@ stdenv.mkDerivation rec {
     owner = "wazuh";
     repo = "wazuh";
     rev = "v${version}";
-    sha256 = "sha256-p9ZuG//4Et7tTGhDfvHFVmpSK253r8OXBdV9+8RrREE="; # nix-prefetch-git https://github.com/wazuh/wazuh.git v4.14.3
+    sha256 = "sha256-Vtld3DCp3OEFcevydZC6gZkL2ngbPsasBiyzBc5VRDY="; # nix-prefetch-git https://github.com/wazuh/wazuh.git v4.14.5
   };
 
   enableParallelBuilding = true;

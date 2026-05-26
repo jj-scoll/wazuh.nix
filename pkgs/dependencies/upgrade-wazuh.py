@@ -105,8 +105,9 @@ def infer_dependency_version(wazuh_version: str, current_dep_version: str) -> st
         req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
         with urllib.request.urlopen(req, timeout=10) as response:
             makefile = response.read().decode()
-            # Look for patterns like "deps/47/" or "DEPENDENCY_VERSION := 47"
-            match = re.search(r'(?:DEPENDENCY_VERSION|deps/)\s*[:=]?\s*(\d+)', makefile)
+            # Wazuh's Makefile defines `DEPS_VERSION = 51` (the actual variable name).
+            # Older releases used DEPENDENCY_VERSION; accept either.
+            match = re.search(r'(?:DEPS_VERSION|DEPENDENCY_VERSION)\s*[:=]+\s*(\d+)', makefile)
             if match:
                 return match.group(1)
     except Exception:
@@ -226,10 +227,11 @@ def update_wazuh_agent_nix(
         flags=re.MULTILINE
     )
 
-    # Update main source hash (the one after src = fetchFromGitHub)
-    # This is tricky - we need to find the right sha256 in the main src block
+    # Update main source hash (the one after src = fetchFromGitHub).
+    # NOTE: must use .*? not [^}]* because `rev = "v${version}"` contains a `}`
+    # that prematurely terminates the [^}]* class.
     content = re.sub(
-        r'(src = fetchFromGitHub \{[^}]*sha256 = ")[^"]+(")',
+        r'(src = fetchFromGitHub \{.*?sha256 = ")[^"]+(")',
         rf'\g<1>{main_hash}\2',
         content,
         flags=re.DOTALL
